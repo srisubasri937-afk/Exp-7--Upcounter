@@ -19,11 +19,75 @@ else if (en) count <= count + 1;   // increments, wraps 1111 -> 0000
 else count <= count;                // holds present value
 
 ## Design / RTL Program
+module up_counter (
+    input  wire       clk,    // clock
+    input  wire       rst,    // asynchronous active-high reset
+    input  wire       en,     // count enable
+    output reg  [3:0] count   // 4-bit count output
+);
+    always @(posedge clk or posedge rst) begin
+        if (rst)
+            count <= 4'b0000;
+        else if (en)
+            count <= count + 1'b1;   // increment, wraps 1111 ->0000
+        else
+            count <= count;          // hold
+    end
+endmodule
 
 
 
 ## Testbench Program
-
+module tb7;
+    reg  clk, rst, en;
+    wire [3:0] count;
+ 
+    // Instantiate the up-counter
+    up_counter uut (
+        .clk(clk),
+        .rst(rst),
+        .en(en),
+        .count(count)
+    );
+ 
+    // ---- Clock generation: 10 time-unit period ----
+    initial clk = 0;
+    always #5 clk = ~clk;
+ 
+    initial begin
+        // ---- VCD dump setup ----
+        $dumpfile("up_counter.vcd");   // name of the VCD file to be generated
+        $dumpvars(0, tb7);               // dump all signals in this testbench hierarchy
+ 
+        $monitor("Time=%0t rst=%b clk=%b en=%b | count=%b (%0d)",
+                  $time, rst, clk, en, count, count);
+ 
+        // ---- Apply asynchronous reset ----
+        rst = 1; en = 0;
+        #7  rst = 0;
+ 
+        // ---- Disable counting: count should hold at 0 ----
+        @(negedge clk);
+        @(negedge clk);
+ 
+        // ---- Enable counting and let it run past overflow ----
+        en = 1;
+        repeat (18) @(negedge clk);   // 18 clocks: 4-bit count wraps around once
+ 
+        // ---- Disable again and confirm the count holds ----
+        en = 0;
+        @(negedge clk);
+        @(negedge clk);
+ 
+        // ---- Apply reset again mid-simulation ----
+        rst = 1;
+        @(negedge clk);
+        rst = 0; en = 1;
+        repeat (3) @(negedge clk);
+ 
+        #20 $finish;
+    end
+endmodule
 
 
 
@@ -31,7 +95,7 @@ else count <= count;                // holds present value
 
 State transition (en = 1, rst = 0 unless noted)
 
-<img width="406" height="205" alt="image" src="https://github.com/user-attachments/assets/f67141a6-9926-4baa-b4fc-af002e8f4824" />
+<img width="514" height="333" alt="image" src="https://github.com/user-attachments/assets/065f47f1-b260-430d-950d-4dbac32c5b73" />
 
 ## Simulation Procedure
 
@@ -88,28 +152,11 @@ count(next) = count + 1   (when en = 1), wrapping from 1111 to 0000
 The design was compiled and simulated using Synopsys VCS, and the functionality was verified using DVE waveform analysis, matching the expected state transition table.
 
 ## Output
+<img width="1667" height="943" alt="output 2 exp 7" src="https://github.com/user-attachments/assets/8e41a8a7-7143-4771-b356-b5ed2ca75314" />
 
 
 
-## Viva-Voce Questions
 
-●	What is the difference between a synchronous counter and a ripple (asynchronous) counter?
-
-●	What is the modulus of this counter, and how is it related to the number of bits?
-
-●	What happens to the count value on overflow, and why is this called 'wrap-around'?
-
-●	What is the purpose of the enable (en) input, and what would happen if it were removed?
-
-●	How would you modify this design to create a down-counter?
-
-●	How would you modify this design to create an up/down counter with a direction control input?
-
-●	What is the difference between a synchronous and an asynchronous reset, and which one is used here?
-
-●	Why is a VCD file generated, and what does $dumpvars(0, tb) do?
-
-●	How would you extend this design to an 8-bit or a mod-10 (decade) counter?
 
 ## Result
 
